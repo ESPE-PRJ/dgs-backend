@@ -22,5 +22,6 @@ export class ProfesionalSalud extends BaseUuIDEntity {
     () => Prescripcion,
     (prescripcion) => prescripcion.profesional_salud,
   )
+
   prescripciones: Prescripcion[];
 }
