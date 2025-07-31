@@ -19,14 +19,15 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "typeorm-ts-node-commonjs",
-    "m:create": "env-cmd -f .env.migrations.local typeorm-ts-node-commonjs migration:create",
-    "m:gen": "env-cmd -f .env.migrations.local ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d config/data.source.ts migration:generate",
-    "m:run": "env-cmd -f .env.migrations.local ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d config/data.source.ts migration:run"
+    "m:create": "env-cmd -f .env typeorm-ts-node-commonjs migration:create",
+    "m:gen": "env-cmd -f .env ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d config/data.source.ts migration:generate",
+    "m:run": "env-cmd -f .env ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d config/data.source.ts migration:run"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "env-cmd": "^10.1.0",
