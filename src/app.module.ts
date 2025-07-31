@@ -12,15 +12,14 @@ import databaseConfig from 'config/database.config';
 
 @Module({
   imports: [
-    TypeOrmModule.forRootAsync(
-      databaseConfig.asProvider() as Partial<PostgresConnectionOptions>,
-    ),
     ConfigModule.forRoot({
       envFilePath: '.env',
       load: [serverConfig],
       isGlobal: true,
-      cache: true,
     }),
+    TypeOrmModule.forRootAsync(
+      databaseConfig.asProvider() as Partial<PostgresConnectionOptions>,
+    ),
     AuthModule,
     CommunicationModule,
     HealthTrackingModule,
