@@ -8,6 +8,8 @@ import { Prescripcion } from './entities/prescripcion.entity';
 import { PrescripcionMedicamento } from './entities/prescripcion-medicamento.entity';
 import { RegistroAdherencia } from './entities/registro-adherencia.entity';
 import { SignosVitales } from './entities/signos-vitales.entity';
+import { CuidadorPaciente } from 'src/auth/entities/cuidador-paciente.entity';
+import { Notificacion } from 'src/communication/entities/notificacion.entity';
 
 // DTOs
 import { CreateMedicamentoDto } from './dto/create-medicamento.dto';
@@ -38,6 +40,12 @@ export class HealthTrackingService {
 
     @InjectRepository(SignosVitales)
     private readonly signosVitalesRepo: Repository<SignosVitales>,
+
+    @InjectRepository(CuidadorPaciente)
+    private readonly cuidadorPacienteRepo: Repository<CuidadorPaciente>,
+
+    @InjectRepository(Notificacion)
+    private readonly notificacionRepo: Repository<Notificacion>,
   ) {}
 
   // ---------- CRUD MEDICAMENTO ----------
@@ -52,7 +60,8 @@ export class HealthTrackingService {
 
   async findOneMedicamento(id: string): Promise<Medicamento> {
     const medicamento = await this.medicamentoRepo.findOne({ where: { id } });
-    if (!medicamento) throw new NotFoundException(`Medicamento ${id} no existe`);
+    if (!medicamento)
+      throw new NotFoundException(`Medicamento ${id} no existe`);
     return medicamento;
   }
 
@@ -91,7 +100,8 @@ export class HealthTrackingService {
       where: { id },
       relations: ['paciente', 'profesional_salud', 'prescripcion_medicamentos'],
     });
-    if (!prescripcion) throw new NotFoundException(`Prescripcion ${id} no existe`);
+    if (!prescripcion)
+      throw new NotFoundException(`Prescripcion ${id} no existe`);
     return prescripcion;
   }
 
@@ -134,7 +144,8 @@ export class HealthTrackingService {
       where: { id },
       relations: ['prescripcion', 'medicamento', 'recordatorios'],
     });
-    if (!entity) throw new NotFoundException(`PrescripcionMedicamento ${id} no existe`);
+    if (!entity)
+      throw new NotFoundException(`PrescripcionMedicamento ${id} no existe`);
     return entity;
   }
 
@@ -175,7 +186,8 @@ export class HealthTrackingService {
       where: { id },
       relations: ['recordatorio', 'paciente'],
     });
-    if (!entity) throw new NotFoundException(`RegistroAdherencia ${id} no existe`);
+    if (!entity)
+      throw new NotFoundException(`RegistroAdherencia ${id} no existe`);
     return entity;
   }
 
@@ -229,5 +241,75 @@ export class HealthTrackingService {
   async removeSignosVitales(id: string): Promise<void> {
     const entity = await this.findOneSignosVitales(id);
     await this.signosVitalesRepo.remove(entity);
+  }
+
+  async getAdherenciaMetricas(pacienteId: string, prescripcionId?: string) {
+    // Obtén todos los registros de adherencia del paciente (y opcionalmente por prescripción)
+    const where: any = { paciente: { id: pacienteId } };
+    if (prescripcionId) {
+      where.recordatorio = {
+        prescripcion_medicamento: { prescripcion: { id: prescripcionId } },
+      };
+    }
+
+    const totalRecordatorios = await this.registroAdherenciaRepo.count({
+      where,
+    });
+    const totalConfirmados = await this.registroAdherenciaRepo.count({
+      where: { ...where, suministrado: true },
+    });
+
+    const porcentajeAdherencia =
+      totalRecordatorios === 0
+        ? 0
+        : Math.round((totalConfirmados / totalRecordatorios) * 100);
+
+    return {
+      pacienteId,
+      prescripcionId: prescripcionId || null,
+      totalRecordatorios,
+      totalConfirmados,
+      porcentajeAdherencia,
+    };
+  }
+
+  // Método para generar alertas a cuidadores
+  async generarAlertasAdherencia(pacienteId: string) {
+    // 1. Buscar adherencias no confirmadas
+    const adherenciasNoConfirmadas = await this.registroAdherenciaRepo.find({
+      where: {
+        paciente: { id: pacienteId },
+        suministrado: false,
+      },
+      relations: ['recordatorio'],
+    });
+
+    if (adherenciasNoConfirmadas.length === 0) {
+      return { message: 'No hay eventos pendientes para alerta.' };
+    }
+
+    // 2. Buscar cuidadores del paciente
+    const cuidadores = await this.cuidadorPacienteRepo.find({
+      where: { paciente: { id: pacienteId } },
+      relations: ['cuidador', 'cuidador.usuario'],
+    });
+
+    // 3. Crear notificación para cada cuidador
+    for (const adherencia of adherenciasNoConfirmadas) {
+      for (const cp of cuidadores) {
+        await this.notificacionRepo.save({
+          usuario: cp.cuidador.usuario,
+          titulo: 'Alerta de adherencia',
+          mensaje: `El paciente no confirmó la toma programada para el ${adherencia.recordatorio?.fecha_inicio ? adherencia.recordatorio.fecha_inicio.toISOString().slice(0, 10) : ''}`,
+          tipo: 'ALERTA_ADHERENCIA',
+          prioridad: 'alta',
+          leido: false,
+        });
+      }
+    }
+
+    return {
+      message: `Se generaron ${adherenciasNoConfirmadas.length} alertas para los cuidadores.`,
+    };
   }
 }

@@ -1,5 +1,6 @@
 import {
   Controller,
+  Query,
   Get,
   Post,
   Body,
@@ -24,6 +25,11 @@ import { UpdateSignosVitalesDto } from './dto/update-signos-vitales.dto';
 @Controller('health-tracking')
 export class HealthTrackingController {
   constructor(private readonly healthTrackingService: HealthTrackingService) {}
+
+  @Post('alerta/cuidador/:pacienteId')
+  async generarAlerta(@Param('pacienteId') pacienteId: string) {
+    return this.healthTrackingService.generarAlertasAdherencia(pacienteId);
+  }
 
   // ----------- MEDICAMENTO -----------
   @Post('medicamento')
@@ -168,5 +174,18 @@ export class HealthTrackingController {
   @Delete('signos-vitales/:id')
   removeSignosVitales(@Param('id') id: string) {
     return this.healthTrackingService.removeSignosVitales(id);
+  }
+
+  // ------------ METRICAS -------------
+  @Get('adherencia/metricas')
+  getAdherenciaMetricas(
+    @Query('pacienteId') pacienteId: string,
+    @Query('prescripcionId') prescripcionId?: string,
+  ) {
+    // Puedes dejar el service vacío, lo implementamos en el siguiente paso
+    return this.healthTrackingService.getAdherenciaMetricas(
+      pacienteId,
+      prescripcionId,
+    );
   }
 }
